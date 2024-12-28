@@ -12,13 +12,15 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AntDesign, MaterialIcons, Ionicons, FontAwesome5 } from '@expo/vector-icons';
-import { questions } from '../data/questions';
+import { getQuestions } from '../data/questions_manager';
 import * as SecureStore from 'expo-secure-store';
+import { useTranslation } from '../translations/TranslationContext';
 
 const { width } = Dimensions.get('window');
 
 export default function PlayScreen({ navigation, route }) {
   const { players, gameMode, difficulty } = route.params;
+  const { strings, language } = useTranslation();
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
   const [selectedType, setSelectedType] = useState(null);
   const [question, setQuestion] = useState('');
@@ -79,48 +81,64 @@ export default function PlayScreen({ navigation, route }) {
   };
 
   const getRandomQuestion = (type) => {
-    // Get default questions for the current difficulty
-    const defaultQuestions = questions[difficulty][gameMode][type];
-    
-    // Only include custom dares if difficulty is not 'soft'
-    let allQuestions = [];
-    if (difficulty === 'soft') {
-      allQuestions = defaultQuestions.map(q => ({ text: q, isCustom: false }));
-    } else {
-      const userQuestions = customDares[type];
-      const formattedUserQuestions = userQuestions.map(q => ({
-        text: q,
-        isCustom: true
-      }));
+    try {
+      // Get questions for current language and difficulty
+      const questions = getQuestions(language, difficulty, gameMode, type);
+      let allQuestions = [];
       
-      allQuestions = [
-        ...defaultQuestions.map(q => ({ text: q, isCustom: false })),
-        ...formattedUserQuestions
-      ];
-    }
+      // If no questions found for this combination, fall back to English
+      if (!questions || questions.length === 0) {
+        console.warn(`No questions found for combination: ${language}, ${difficulty}, ${gameMode}, ${type}`);
+        const fallbackQuestions = getQuestions('en', difficulty, gameMode, type);
+        allQuestions = fallbackQuestions.map(q => ({ text: q, isCustom: false }));
+      } else {
+        // Map the questions to include isCustom flag
+        allQuestions = questions.map(q => ({ text: q, isCustom: false }));
+        
+        // Only include custom dares if difficulty is not 'soft'
+        if (difficulty !== 'soft' && customDares[type]) {
+          const userQuestions = customDares[type] || [];
+          const formattedUserQuestions = userQuestions.map(q => ({
+            text: q,
+            isCustom: true
+          }));
+          
+          allQuestions = [
+            ...allQuestions,
+            ...formattedUserQuestions
+          ];
+        }
+      }
 
-    // Filter out revealed questions
-    const availableQuestions = allQuestions.filter(q => !revealedQuestions[type].has(q.text));
-    
-    // If all questions have been revealed, reset the tracking and use all questions
-    if (availableQuestions.length === 0) {
-      setRevealedQuestions(prev => ({
-        ...prev,
-        [type]: new Set()
-      }));
-      return allQuestions[Math.floor(Math.random() * allQuestions.length)];
+      // Filter out already revealed questions
+      const availableQuestions = allQuestions.filter(q => !revealedQuestions[type].has(q.text));
+      
+      // If all questions have been revealed, reset the set and use all questions
+      if (availableQuestions.length === 0) {
+        revealedQuestions[type].clear();
+        setRevealedQuestions({ ...revealedQuestions });
+        return getRandomQuestion(type);
+      }
+
+      // Get a random question from available ones
+      const randomIndex = Math.floor(Math.random() * availableQuestions.length);
+      const selectedQuestion = availableQuestions[randomIndex];
+      
+      // Mark question as revealed
+      revealedQuestions[type].add(selectedQuestion.text);
+      setRevealedQuestions({ ...revealedQuestions });
+      
+      return selectedQuestion;
+    } catch (error) {
+      console.error('Error getting random question:', error);
+      // Return a simple fallback question in case of error
+      return {
+        text: type === 'truth' ? 
+          'Tell us something interesting about yourself.' :
+          'Do your best dance move.',
+        isCustom: false
+      };
     }
-    
-    // Get a random question from available ones
-    const selectedQuestion = availableQuestions[Math.floor(Math.random() * availableQuestions.length)];
-    
-    // Add the selected question to revealed set
-    setRevealedQuestions(prev => ({
-      ...prev,
-      [type]: new Set([...prev[type], selectedQuestion.text])
-    }));
-    
-    return selectedQuestion;
   };
 
   const animateQuestionSelection = (type) => {
@@ -129,20 +147,31 @@ export default function PlayScreen({ navigation, route }) {
     
     // Store the final question but don't show it immediately
     const finalQuestion = getRandomQuestion(type);
-    const defaultQuestions = questions[difficulty][gameMode][type];
-    
-    // Only include custom dares if difficulty is not 'soft'
-    let allQuestions = [];
-    if (difficulty === 'soft') {
-      allQuestions = defaultQuestions.map(q => ({ text: q, isCustom: false }));
+    const questions = getQuestions(language, difficulty, gameMode, type);
+    let questionsList = [];
+
+    if (!questions || questions.length === 0) {
+      // Fall back to English questions if none found for current language
+      const fallbackQuestions = getQuestions('en', difficulty, gameMode, type);
+      questionsList = fallbackQuestions.map(q => ({ text: q, isCustom: false }));
     } else {
-      const userQuestions = customDares[type];
-      allQuestions = [
-        ...defaultQuestions.map(q => ({ text: q, isCustom: false })),
-        ...userQuestions.map(q => ({ text: q, isCustom: true }))
-      ];
+      questionsList = questions.map(q => ({ text: q, isCustom: false }));
+      
+      // Only include custom dares if difficulty is not 'soft'
+      if (difficulty !== 'soft' && customDares[type]) {
+        const userQuestions = customDares[type] || [];
+        const formattedUserQuestions = userQuestions.map(q => ({
+          text: q,
+          isCustom: true
+        }));
+        
+        questionsList = [
+          ...questionsList,
+          ...formattedUserQuestions
+        ];
+      }
     }
-    
+
     let currentSpeed = 30;
     let speedIncrement = 2;
     let currentIndex = 0;
@@ -158,39 +187,17 @@ export default function PlayScreen({ navigation, route }) {
         return;
       }
       
-      currentIndex = (currentIndex + 1) % allQuestions.length;
-      setQuestion(allQuestions[currentIndex]);
+      currentIndex = (currentIndex + 1) % questionsList.length;
+      setQuestion(questionsList[currentIndex]);
     }, currentSpeed);
 
-    // Create a bouncy animation sequence
-    Animated.sequence([
-      // Initial quick scale up
+    // Create a smooth emergence animation sequence
+    Animated.parallel([
+      // Scale and fade animation
       Animated.timing(questionAnimValue, {
-        toValue: 0.3,
-        duration: 300,
-        easing: Easing.bezier(0.4, 0.0, 0.2, 1),
-        useNativeDriver: true,
-      }),
-      // Bouncy animation during question cycling
-      Animated.sequence([
-        Animated.timing(questionAnimValue, {
-          toValue: 0.6,
-          duration: 600,
-          easing: Easing.bezier(0.175, 0.885, 0.32, 1.275), // Bouncy easing
-          useNativeDriver: true,
-        }),
-        Animated.timing(questionAnimValue, {
-          toValue: 0.4,
-          duration: 400,
-          easing: Easing.bezier(0.4, 0.0, 0.2, 1),
-          useNativeDriver: true,
-        }),
-      ]),
-      // Final settling animation
-      Animated.spring(questionAnimValue, {
         toValue: 1,
-        friction: 8, // More springiness
-        tension: 40,
+        duration: 600,
+        easing: Easing.bezier(0.16, 1, 0.3, 1), // Custom easing for smooth emergence
         useNativeDriver: true,
       }),
     ]).start(() => {
@@ -284,25 +291,52 @@ export default function PlayScreen({ navigation, route }) {
     const wheelSize = width * 0.8;
     const radius = wheelSize / 2 - 40;
     const angleStep = (2 * Math.PI) / players.length;
+    const textWidth = 100; // Width of text container
+    const textHeight = 24; // Height of text container
 
     return players.map((player, index) => {
-      const angle = index * angleStep;
-      const x = radius * Math.cos(angle);
-      const y = radius * Math.sin(angle);
+      // Calculate the center angle between two separators
+      const sectionCenterAngle = (index * angleStep) + (angleStep / 2) - Math.PI / 2;
+      
+      // Calculate position based on the center angle
+      const x = radius * Math.cos(sectionCenterAngle);
+      const y = radius * Math.sin(sectionCenterAngle);
+
+      // Calculate the position to center the text
+      const textCenterX = x - (textWidth / 2);
+      const textCenterY = y - (textHeight / 2);
 
       return (
         <Animated.View
           key={index}
           className={`absolute ${isSpinning ? 'opacity-90 scale-90' : 'opacity-100'}`}
           style={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            width: textWidth,
+            height: textHeight,
             transform: [
-              { translateX: x },
-              { translateY: y },
-              { rotate: `${angle + Math.PI/4}rad` },
+              { translateX: textCenterX },
+              { translateY: textCenterY },
+              { rotate: `${sectionCenterAngle + Math.PI/2}rad` }, // Rotate text to be readable
             ],
+            justifyContent: 'center',
+            alignItems: 'center',
           }}
         >
-          <Text className={`text-white text-lg font-bold ${isSpinning ? 'opacity-75' : ''}`}>
+          <Text 
+            className={`text-white text-lg font-bold ${isSpinning ? 'opacity-75' : ''}`}
+            style={{ 
+              textAlign: 'center',
+              width: '100%',
+              textShadowColor: 'rgba(0, 0, 0, 0.3)',
+              textShadowOffset: { width: 0, height: 2 },
+              textShadowRadius: 4,
+            }}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
             {player.name}
           </Text>
         </Animated.View>
@@ -312,24 +346,25 @@ export default function PlayScreen({ navigation, route }) {
 
   const renderSeparators = () => {
     const angleStep = (2 * Math.PI) / players.length;
-    const wheelRadius = width * 0.425; // Half of the wheel width
-    const centerLogoRadius = 48; // Size of the center logo circle (96/2)
-    
+    const wheelRadius = width * 0.425;
+    const centerLogoRadius = 48;
+
     return players.map((_, index) => {
-      const angle = index * angleStep;
+      const angle = index * angleStep - Math.PI / 2; // Start from top (-90 degrees)
       return (
         <View
           key={`separator-${index}`}
           className="absolute"
           style={{
+            position: 'absolute',
             width: 2,
-            height: wheelRadius * 2, // Full diameter of the wheel
+            height: wheelRadius * 2,
             backgroundColor: 'rgba(255, 255, 255, 0.3)',
             left: '50%',
             top: '50%',
             transform: [
               { translateX: -1 },
-              { translateY: -wheelRadius }, // Center the line
+              { translateY: -wheelRadius },
               { rotate: `${(angle * 180) / Math.PI}deg` },
             ],
           }}
@@ -339,7 +374,7 @@ export default function PlayScreen({ navigation, route }) {
               position: 'absolute',
               width: '100%',
               height: centerLogoRadius * 2,
-              backgroundColor: '#1a237e', // Same as the first gradient color
+              backgroundColor: '#1a237e',
               top: wheelRadius - centerLogoRadius,
             }}
           />
@@ -348,122 +383,175 @@ export default function PlayScreen({ navigation, route }) {
     });
   };
 
-  const renderSpinWheel = () => (
-    <View className="flex-1 items-center justify-center">
-      <Text className="text-4xl text-white font-bold mb-8 tracking-tight">Who's Next?</Text>
-      <View className="relative mb-8">
-        <View className="absolute -top-6 left-1/2 -ml-[20px] w-0 h-0 border-l-[20px] border-r-[20px] border-b-[40px] border-l-transparent border-r-transparent border-b-white/90 shadow-lg rotate-[-45deg] z-20" />
-        <Animated.View
-          className="items-center justify-center shadow-2xl"
-          style={{
-            transform: [{ rotate: spin }],
-            width: width * 0.85,
-            height: width * 0.85,
-          }}
-        >
-          <LinearGradient
-            colors={['#1a237e', '#4a148c']}
-            className="w-full h-full rounded-full items-center justify-center border-4 border-white/20 overflow-hidden"
+  const renderSpinWheel = () => {
+    return (
+      <View className="flex-1 items-center justify-center">
+        <Text className="text-4xl text-white font-bold mb-8 tracking-tight">
+          {strings.gameSetup.whoNext}
+        </Text>
+        <View className="relative mb-8">
+          <View className="absolute -top-6 left-1/2 -ml-[20px] w-0 h-0 border-l-[20px] border-r-[20px] border-b-[40px] border-l-transparent border-r-transparent border-b-white/90 shadow-lg rotate-[-45deg] z-20" />
+          <Animated.View
+            className="items-center justify-center shadow-2xl"
+            style={{
+              transform: [{ rotate: spin }],
+              width: width * 0.85,
+              height: width * 0.85,
+            }}
           >
-            {renderSeparators()}
-            {renderPlayerNames()}
-            <View className="absolute w-24 h-24 rounded-full bg-white/20 items-center justify-center border-2 border-white/30 shadow-lg">
-              <FontAwesome5 name="user-friends" size={44} color="#fff" />
+            <LinearGradient
+              colors={['#1a237e', '#4a148c']}
+              className="w-full h-full rounded-full items-center justify-center border-4 border-white/20 overflow-hidden"
+            >
+              {renderSeparators()}
+              {renderPlayerNames()}
+              <View className="absolute w-24 h-24 rounded-full bg-white/20 items-center justify-center border-2 border-white/30 shadow-lg">
+                <FontAwesome5 name="user-friends" size={44} color="#fff" />
+              </View>
+            </LinearGradient>
+          </Animated.View>
+        </View>
+        {!isSpinning && (
+          <View className="items-center">
+            <Text className="text-4xl text-white font-bold text-center mb-2">
+              {players[currentPlayerIndex].name}
+            </Text>
+            <Text className="text-xl text-white/80 font-medium text-center">
+              {strings.gameSetup.chooseType}
+            </Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const renderQuestion = () => {
+    return (
+      <Animated.View
+        className="flex-1 px-5"
+        style={{
+          transform: [
+            { scale: questionAnimValue.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0.8, 1],
+            })},
+            { translateY: questionAnimValue.interpolate({
+              inputRange: [0, 1],
+              outputRange: [100, 0],
+            })},
+          ],
+          opacity: questionAnimValue.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, 1],
+          }),
+        }}
+      >
+        <View className="flex-1 items-center justify-center">
+          <LinearGradient
+            colors={selectedType === 'truth' ? ['#2196F3', '#1976D2'] : ['#FF4B91', '#A91079']}
+            className="w-full rounded-3xl shadow-2xl overflow-hidden"
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <View className="absolute inset-0 bg-white/10" />
+            <View className="p-7">
+              <View className="flex-row items-center mb-6">
+                <Animated.View 
+                  className="w-12 h-12 rounded-full bg-white/20 items-center justify-center"
+                  style={{
+                    transform: [{
+                      scale: questionAnimValue.interpolate({
+                        inputRange: [0, 0.7, 1],
+                        outputRange: [0.6, 1.1, 1],
+                      }),
+                    }],
+                    opacity: questionAnimValue.interpolate({
+                      inputRange: [0, 0.7, 1],
+                      outputRange: [0, 1, 1],
+                    }),
+                  }}
+                >
+                  <MaterialIcons
+                    name={selectedType === 'truth' ? 'question-answer' : 'local-fire-department'}
+                    size={32}
+                    color="#fff"
+                  />
+                </Animated.View>
+                <Animated.Text 
+                  className="text-white text-xl font-bold tracking-wider ml-4"
+                  style={{
+                    transform: [{
+                      translateX: questionAnimValue.interpolate({
+                        inputRange: [0, 0.7, 1],
+                        outputRange: [20, -10, 0],
+                      }),
+                    }],
+                    opacity: questionAnimValue.interpolate({
+                      inputRange: [0, 0.7, 1],
+                      outputRange: [0, 1, 1],
+                    }),
+                  }}
+                >
+                  {selectedType === 'truth' ? strings.gameSetup.truth : strings.gameSetup.dare}
+                </Animated.Text>
+                {question.isCustom && (
+                  <Animated.View 
+                    className="bg-[#E91E63] px-3 py-1 rounded-full ml-3"
+                    style={{
+                      transform: [{
+                        scale: questionAnimValue.interpolate({
+                          inputRange: [0, 0.8, 1],
+                          outputRange: [0.5, 1.1, 1],
+                        }),
+                      }],
+                      opacity: questionAnimValue.interpolate({
+                        inputRange: [0, 0.8, 1],
+                        outputRange: [0, 1, 1],
+                      }),
+                    }}
+                  >
+                    <Text className="text-white text-xs font-bold tracking-wider">{strings.common.custom}</Text>
+                  </Animated.View>
+                )}
+              </View>
+              <Animated.View
+                className="items-center"
+                style={{
+                  transform: [{
+                    translateY: questionAnimValue.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [30, 0],
+                    }),
+                  }],
+                  opacity: questionAnimValue.interpolate({
+                    inputRange: [0, 0.5, 1],
+                    outputRange: [0, 0.8, 1],
+                  }),
+                }}
+              >
+                <Text className={`text-white text-2xl text-center leading-9 font-medium ${
+                  isChoosingQuestion ? 'opacity-75' : ''
+                }`}>
+                  {question.text || question}
+                </Text>
+              </Animated.View>
             </View>
           </LinearGradient>
-        </Animated.View>
-      </View>
-      {!isSpinning && (
-        <View className="items-center">
-          <Text className="text-4xl text-white font-bold text-center mb-2">
-            {players[currentPlayerIndex].name}
-          </Text>
-          <Text className="text-xl text-white/80 font-medium text-center">
-            Choose Truth or Dare
-          </Text>
         </View>
-      )}
-    </View>
-  );
-
-  const renderQuestion = () => (
-    <Animated.View
-      className="flex-1 px-5"
-      style={{
-        transform: [{ scale: questionAnimValue }],
-      }}
-    >
-      <View className="flex-1 items-center justify-center">
-        <LinearGradient
-          colors={selectedType === 'truth' ? ['#2196F3', '#1976D2'] : ['#FF4B91', '#A91079']}
-          className="w-full rounded-3xl shadow-2xl overflow-hidden"
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+        <TouchableOpacity
+          className={`w-full bg-white rounded-2xl py-4 mb-6 shadow-lg ${
+            isChoosingQuestion ? 'opacity-50' : ''
+          }`}
+          onPress={nextPlayer}
+          disabled={isChoosingQuestion}
         >
-          <View className="absolute inset-0 bg-white/10" />
-          <View className="p-7">
-            <View className="flex-row items-center mb-6">
-              <View className="w-12 h-12 rounded-full bg-white/20 items-center justify-center">
-                <MaterialIcons
-                  name={selectedType === 'truth' ? 'question-answer' : 'local-fire-department'}
-                  size={32}
-                  color="#fff"
-                />
-              </View>
-              <Text className="text-white text-xl font-bold tracking-wider ml-4">
-                {selectedType.toUpperCase()}
-              </Text>
-              {question.isCustom && (
-                <View className="bg-[#E91E63] px-3 py-1 rounded-full ml-3">
-                  <Text className="text-white text-xs font-bold tracking-wider">CUSTOM</Text>
-                </View>
-              )}
-            </View>
-            <Animated.View
-              className="items-center"
-              style={{
-                transform: [
-                  {
-                    scale: questionAnimValue.interpolate({
-                      inputRange: [0, 0.3, 0.6, 0.8, 1],
-                      outputRange: [1, 1.1, 1.15, 1.05, 1],
-                    }),
-                  },
-                  {
-                    rotate: questionAnimValue.interpolate({
-                      inputRange: [0, 0.3, 0.6, 0.8, 1],
-                      outputRange: ['0deg', '-2deg', '2deg', '-1deg', '0deg'],
-                    }),
-                  },
-                ],
-                opacity: questionAnimValue.interpolate({
-                  inputRange: [0, 0.2, 0.8, 1],
-                  outputRange: [0.7, 1, 1, 1],
-                }),
-              }}
-            >
-              <Text className={`text-white text-2xl text-center leading-9 font-medium ${
-                isChoosingQuestion ? 'opacity-75' : ''
-              }`}>
-                {question.text || question}
-              </Text>
-            </Animated.View>
-          </View>
-        </LinearGradient>
-      </View>
-      <TouchableOpacity
-        className={`w-full bg-white rounded-2xl py-4 mb-6 shadow-lg ${
-          isChoosingQuestion ? 'opacity-50' : ''
-        }`}
-        onPress={nextPlayer}
-        disabled={isChoosingQuestion}
-      >
-        <Text className="text-purple-900 text-lg font-bold text-center tracking-wider">
-          NEXT PLAYER
-        </Text>
-      </TouchableOpacity>
-    </Animated.View>
-  );
+          <Text className="text-purple-900 text-lg font-bold text-center tracking-wider">
+            {strings.common.next}
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-[#1a237e] pt-[${Platform.OS === 'android' ? StatusBar.currentHeight : 0}px]">
@@ -487,7 +575,7 @@ export default function PlayScreen({ navigation, route }) {
                 className="mr-2"
               />
               <Text className="text-white text-lg font-semibold capitalize">
-                {difficulty} Mode
+                {strings.difficulties[difficulty]} {strings.gameSetup.mode}
               </Text>
             </View>
           </View>
@@ -502,14 +590,14 @@ export default function PlayScreen({ navigation, route }) {
                     onPress={() => handleSelectType('truth')}
                   >
                     <MaterialIcons name="question-answer" size={28} color="#fff" className="mr-3" />
-                    <Text className="text-white text-xl font-bold tracking-wide">TRUTH</Text>
+                    <Text className="text-white text-xl font-bold tracking-wide">{strings.gameSetup.truth}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     className="flex-1 flex-row items-center justify-center bg-[#F44336] py-5 rounded-2xl shadow-lg"
                     onPress={() => handleSelectType('dare')}
                   >
                     <FontAwesome5 name="fire" size={28} color="#fff" className="mr-3" />
-                    <Text className="text-white text-xl font-bold tracking-wide">DARE</Text>
+                    <Text className="text-white text-xl font-bold tracking-wide">{strings.gameSetup.dare}</Text>
                   </TouchableOpacity>
                 </View>
               )}

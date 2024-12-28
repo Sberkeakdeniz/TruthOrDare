@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AntDesign, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
+import { useTranslation } from '../translations/TranslationContext';
 
 const DIFFICULTIES = [
   {
@@ -47,6 +48,7 @@ const DIFFICULTIES = [
 
 export default function DifficultyScreen({ navigation, route }) {
   const { players, gameMode } = route.params;
+  const { strings } = useTranslation();
 
   const handleSelectDifficulty = (difficulty) => {
     navigation.navigate('Play', { players, gameMode, difficulty });
@@ -67,13 +69,17 @@ export default function DifficultyScreen({ navigation, route }) {
               <AntDesign name="arrowleft" size={24} color="#fff" />
             </TouchableOpacity>
             <View className="flex-1">
-              <Text className="text-3xl text-white font-bold mb-1">Choose Difficulty</Text>
-              <Text className="text-base text-white/80">Select how daring you want to be</Text>
+              <Text className="text-3xl text-white font-bold mb-1">
+                {strings?.difficulty?.selectDifficulty || 'Choose Difficulty'}
+              </Text>
+              <Text className="text-base text-white/80">
+                {strings?.difficulty?.warning || 'Select how daring you want to be'}
+              </Text>
             </View>
           </View>
 
-          <View className="flex-1 justify-center space-y-4 pb-[5%]">
-            {DIFFICULTIES.map((difficulty, index) => (
+          <View className="flex-1 justify-center space-y-4">
+            {DIFFICULTIES.map((difficulty) => (
               <TouchableOpacity
                 key={difficulty.id}
                 className="h-[11%] rounded-2xl overflow-hidden shadow-lg"
@@ -94,32 +100,35 @@ export default function DifficultyScreen({ navigation, route }) {
                         <FontAwesome5 name={difficulty.icon} size={32} color="#fff" />
                       )}
                     </View>
-                    <Text className="flex-1 text-xl font-bold text-white">{difficulty.title}</Text>
-                    <AntDesign name="right" size={24} color="#fff" className="opacity-90" />
+                    <View className="flex-1">
+                      <Text className="text-xl font-bold text-white">
+                        {strings?.difficulties?.[difficulty.id] || difficulty.title}
+                      </Text>
+                      <Text className="text-sm text-white/80">{difficulty.description}</Text>
+                    </View>
+                    <AntDesign name="arrowright" size={24} color="#fff" />
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
             ))}
-            <TouchableOpacity
-              className="h-20 rounded-3xl overflow-hidden shadow-lg mt-5"
-              onPress={() => navigation.navigate('CreateDares')}
-            >
-              <LinearGradient
-                colors={['#E91E63', '#C2185B']}
-                className="flex-1 p-5"
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <View className="absolute inset-0 bg-white/10 rounded-3xl" />
-                <View className="flex-1 flex-row items-center z-10">
-                  <View className="w-12 h-12 rounded-full bg-white/20 justify-center items-center mr-4">
-                    <MaterialIcons name="add-circle" size={32} color="#fff" />
-                  </View>
-                  <Text className="flex-1 text-xl font-bold text-white">Create your own dares!</Text>
-                  <AntDesign name="right" size={24} color="#fff" className="opacity-90" />
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            className="mt-4 bg-white/10 rounded-2xl p-4 border border-white/20"
+            onPress={() => navigation.navigate('CreateDares')}
+          >
+            <View className="flex-row items-center justify-center">
+              <MaterialIcons name="add-circle-outline" size={24} color="#fff" className="mr-2" />
+              <Text className="text-white text-lg font-semibold ml-2">
+                {strings?.createDares?.title || 'Create Custom Dares'}
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <View className="mt-4">
+            <Text className="text-white/60 text-center text-sm">
+              {strings?.createDares?.info || 'Custom dares will appear in all difficulty levels'}
+            </Text>
           </View>
         </View>
       </LinearGradient>
