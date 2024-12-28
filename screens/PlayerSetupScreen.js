@@ -1,18 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  StyleSheet,
   Text,
   View,
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Dimensions,
   SafeAreaView,
   Platform,
   StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AntDesign, MaterialIcons } from '@expo/vector-icons';
+import * as SecureStore from 'expo-secure-store';
 
 export default function PlayerSetupScreen({ navigation, route }) {
   const gameMode = route.params?.gameMode || 'friends';
@@ -23,6 +22,36 @@ export default function PlayerSetupScreen({ navigation, route }) {
     { id: 1, name: '', gender: 'male' },
     { id: 2, name: '', gender: 'female' },
   ]);
+
+  useEffect(() => {
+    loadLastPlayers();
+  }, []);
+
+  const loadLastPlayers = async () => {
+    try {
+      const savedPlayers = await SecureStore.getItemAsync('lastPlayers');
+      if (savedPlayers) {
+        const parsedPlayers = JSON.parse(savedPlayers);
+        // Only load if the game mode matches
+        if (parsedPlayers.gameMode === gameMode) {
+          setPlayers(parsedPlayers.players);
+        }
+      }
+    } catch (error) {
+      console.log('Error loading last players:', error);
+    }
+  };
+
+  const savePlayers = async (playersToSave) => {
+    try {
+      await SecureStore.setItemAsync('lastPlayers', JSON.stringify({
+        players: playersToSave,
+        gameMode: gameMode
+      }));
+    } catch (error) {
+      console.log('Error saving players:', error);
+    }
+  };
 
   const addPlayer = () => {
     if (players.length < maxPlayers) {
@@ -48,32 +77,42 @@ export default function PlayerSetupScreen({ navigation, route }) {
     ));
   };
 
-  const startGame = () => {
+  const startGame = async () => {
     const filledPlayers = players.every(player => player.name.trim() !== '');
     if (filledPlayers) {
-      navigation.navigate('Difficulty', { players, gameMode });
+      try {
+        // Save the current players
+        await savePlayers(players);
+        // Reset the last player index to 0 when starting a new game
+        await SecureStore.setItemAsync('lastPlayerIndex', '0');
+        navigation.navigate('Difficulty', { players, gameMode });
+      } catch (error) {
+        console.log('Error saving game state:', error);
+        // Still navigate even if saving fails
+        navigation.navigate('Difficulty', { players, gameMode });
+      }
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView className="flex-1 bg-[#1a237e] pt-[${Platform.OS === 'android' ? StatusBar.currentHeight : 0}px]">
       <LinearGradient
         colors={['#1a237e', '#4a148c', '#311b92']}
-        style={styles.background}
+        className="flex-1"
       >
-        <View style={styles.container}>
-          <View style={styles.header}>
+        <View className="flex-1 p-5">
+          <View className="flex-row items-center mb-8">
             <TouchableOpacity
-              style={styles.backButton}
+              className="w-10 h-10 rounded-full bg-white/15 justify-center items-center mr-4"
               onPress={() => navigation.goBack()}
             >
               <AntDesign name="arrowleft" size={24} color="#fff" />
             </TouchableOpacity>
-            <View style={styles.headerContent}>
-              <Text style={styles.title}>
+            <View className="flex-1">
+              <Text className="text-3xl text-white font-bold mb-1">
                 {gameMode === 'couples' ? 'Add Couples' : 'Add Players'}
               </Text>
-              <Text style={styles.subtitle}>
+              <Text className="text-base text-white/80">
                 {gameMode === 'couples'
                   ? 'Add 1-3 couples to play'
                   : 'Add 2-10 players to start'}
@@ -82,17 +121,17 @@ export default function PlayerSetupScreen({ navigation, route }) {
           </View>
 
           <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollViewContent}
+            className="flex-1"
+            contentContainerClassName="pb-5"
             showsVerticalScrollIndicator={false}
           >
             {players.map((player, index) => (
               <View key={player.id}>
-                <View style={styles.playerCard}>
-                  <View style={styles.playerInputs}>
-                    <View style={styles.nameInputContainer}>
+                <View className="bg-white/10 rounded-2xl p-4 mb-3">
+                  <View className="flex-row items-center gap-3">
+                    <View className="flex-1 h-[45px] bg-white/10 rounded-xl overflow-hidden">
                       <TextInput
-                        style={styles.input}
+                        className="flex-1 h-full px-4 text-white text-base"
                         placeholder={gameMode === 'couples' 
                           ? `Enter ${index % 2 === 0 ? 'first' : 'second'} player's name`
                           : "Enter player's name"
@@ -103,10 +142,9 @@ export default function PlayerSetupScreen({ navigation, route }) {
                       />
                     </View>
                     <TouchableOpacity
-                      style={[
-                        styles.genderButton,
-                        { backgroundColor: player.gender === 'male' ? '#2196F3' : '#FF4B91' }
-                      ]}
+                      className={`w-[45px] h-[45px] rounded-xl justify-center items-center ${
+                        player.gender === 'male' ? 'bg-[#2196F3]' : 'bg-[#FF4B91]'
+                      }`}
                       onPress={() => toggleGender(player.id)}
                     >
                       <MaterialIcons
@@ -118,7 +156,7 @@ export default function PlayerSetupScreen({ navigation, route }) {
                     {players.length > minPlayers && (
                       <TouchableOpacity
                         onPress={() => removePlayer(player.id)}
-                        style={styles.removeButton}
+                        className="w-[45px] h-[45px] justify-center items-center"
                       >
                         <AntDesign name="closecircle" size={24} color="rgba(255, 255, 255, 0.8)" />
                       </TouchableOpacity>
@@ -126,185 +164,40 @@ export default function PlayerSetupScreen({ navigation, route }) {
                   </View>
                 </View>
                 {gameMode === 'couples' && index % 2 === 1 && index !== players.length - 1 && (
-                  <View style={styles.coupleDivider} />
+                  <View className="h-4" />
                 )}
               </View>
             ))}
           </ScrollView>
 
-          <View style={styles.footer}>
+          <View className="mt-4 space-y-3">
             {players.length < maxPlayers && (
               <TouchableOpacity 
-                style={[
-                  styles.addButton,
-                  { backgroundColor: gameMode === 'couples' ? '#FF4B91' : '#2196F3' }
-                ]} 
+                className={`flex-row items-center justify-center py-4 rounded-xl ${
+                  gameMode === 'couples' ? 'bg-[#FF4B91]' : 'bg-[#2196F3]'
+                }`}
                 onPress={addPlayer}
               >
-                <AntDesign name="plus" size={20} color="#fff" style={styles.addIcon} />
-                <Text style={styles.addButtonText}>
+                <AntDesign name="plus" size={20} color="#fff" className="mr-2" />
+                <Text className="text-white font-semibold text-base">
                   Add {gameMode === 'couples' ? 'Couple' : 'Player'}
                 </Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity
-              style={[
-                styles.startButton,
-                !players.every(p => p.name.trim()) && styles.startButtonDisabled
-              ]}
+              className={`py-4 rounded-xl bg-white ${
+                !players.every(p => p.name.trim()) ? 'opacity-50' : ''
+              }`}
               onPress={startGame}
               disabled={!players.every(p => p.name.trim())}
             >
-              <Text style={styles.startButtonText}>Choose Difficulty</Text>
+              <Text className="text-purple-900 font-bold text-center text-base">
+                Choose Difficulty
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
       </LinearGradient>
     </SafeAreaView>
   );
-}
-
-const { width, height } = Dimensions.get('window');
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#1a237e',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-  },
-  background: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    padding: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
-  },
-  headerContent: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 32,
-    color: '#ffffff',
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollViewContent: {
-    paddingBottom: 20,
-  },
-  playerCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 16,
-    padding: 15,
-    marginBottom: 12,
-  },
-  playerInputs: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  nameInputContainer: {
-    flex: 1,
-    height: 45,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  input: {
-    flex: 1,
-    height: '100%',
-    paddingHorizontal: 15,
-    color: '#fff',
-    fontSize: 16,
-  },
-  genderButton: {
-    width: 45,
-    height: 45,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  removeButton: {
-    width: 45,
-    height: 45,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  coupleDivider: {
-    height: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    marginVertical: 15,
-    marginHorizontal: 30,
-    borderRadius: 1,
-  },
-  footer: {
-    gap: 12,
-    paddingTop: 12,
-  },
-  addButton: {
-    flexDirection: 'row',
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  addIcon: {
-    marginRight: 8,
-  },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  startButton: {
-    height: 48,
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  startButtonDisabled: {
-    opacity: 0.5,
-  },
-  startButtonText: {
-    color: '#4a148c',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-}); 
+} 

@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  StyleSheet,
   Text,
   View,
   TouchableOpacity,
@@ -16,6 +15,8 @@ import { AntDesign, MaterialIcons, Ionicons, FontAwesome5 } from '@expo/vector-i
 import { questions } from '../data/questions';
 import * as SecureStore from 'expo-secure-store';
 
+const { width } = Dimensions.get('window');
+
 export default function PlayScreen({ navigation, route }) {
   const { players, gameMode, difficulty } = route.params;
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
@@ -24,6 +25,10 @@ export default function PlayScreen({ navigation, route }) {
   const [isSpinning, setIsSpinning] = useState(true);
   const [isChoosingQuestion, setIsChoosingQuestion] = useState(false);
   const [customDares, setCustomDares] = useState({ truth: [], dare: [] });
+  const [revealedQuestions, setRevealedQuestions] = useState({
+    truth: new Set(),
+    dare: new Set()
+  });
   
   const spinValue = useRef(new Animated.Value(0)).current;
   const questionAnimValue = useRef(new Animated.Value(0)).current;
@@ -32,6 +37,34 @@ export default function PlayScreen({ navigation, route }) {
 
   useEffect(() => {
     loadCustomDares();
+    loadLastPlayerIndex();
+  }, []);
+
+  const loadLastPlayerIndex = async () => {
+    try {
+      const lastIndex = await SecureStore.getItemAsync('lastPlayerIndex');
+      if (lastIndex !== null) {
+        const index = parseInt(lastIndex);
+        if (index >= 0 && index < players.length) {
+          setCurrentPlayerIndex(index);
+        }
+      }
+    } catch (error) {
+      console.log('Error loading last player index:', error);
+    }
+  };
+
+  const saveLastPlayerIndex = async (index) => {
+    try {
+      await SecureStore.setItemAsync('lastPlayerIndex', index.toString());
+    } catch (error) {
+      console.log('Error saving last player index:', error);
+    }
+  };
+
+  // Add back the initial spin animation
+  useEffect(() => {
+    startSpinAnimation();
   }, []);
 
   const loadCustomDares = async () => {
@@ -65,9 +98,29 @@ export default function PlayScreen({ navigation, route }) {
         ...formattedUserQuestions
       ];
     }
+
+    // Filter out revealed questions
+    const availableQuestions = allQuestions.filter(q => !revealedQuestions[type].has(q.text));
     
-    // Return a random question from the combined array
-    return allQuestions[Math.floor(Math.random() * allQuestions.length)];
+    // If all questions have been revealed, reset the tracking and use all questions
+    if (availableQuestions.length === 0) {
+      setRevealedQuestions(prev => ({
+        ...prev,
+        [type]: new Set()
+      }));
+      return allQuestions[Math.floor(Math.random() * allQuestions.length)];
+    }
+    
+    // Get a random question from available ones
+    const selectedQuestion = availableQuestions[Math.floor(Math.random() * availableQuestions.length)];
+    
+    // Add the selected question to revealed set
+    setRevealedQuestions(prev => ({
+      ...prev,
+      [type]: new Set([...prev[type], selectedQuestion.text])
+    }));
+    
+    return selectedQuestion;
   };
 
   const animateQuestionSelection = (type) => {
@@ -152,35 +205,36 @@ export default function PlayScreen({ navigation, route }) {
     spinValue.setValue(0);
     
     // Calculate final position with more precise control
-    const targetPlayer = Math.floor(Math.random() * players.length);
-    const baseRotations = 5; // Minimum number of full rotations
-    const randomExtra = Math.random() * 2; // Random additional rotations (0-2)
+    const currentIndex = currentPlayerIndex;
+    let targetPlayer;
+    do {
+      targetPlayer = Math.floor(Math.random() * players.length);
+    } while (targetPlayer === currentIndex && players.length > 1); // Ensure different player if possible
+
+    const baseRotations = 5;
+    const randomExtra = Math.random() * 2;
     const targetRotation = baseRotations + randomExtra + (targetPlayer / players.length);
 
     // Create a smoother spinning sequence
     Animated.sequence([
-      // Initial acceleration
       Animated.timing(spinValue, {
         toValue: targetRotation * 0.4,
         duration: spinDuration * 0.3,
-        easing: Easing.bezier(0.33, 0, 0.66, 0.33), // Custom easing for smooth acceleration
+        easing: Easing.bezier(0.33, 0, 0.66, 0.33),
         useNativeDriver: true,
       }),
-      // Main spinning phase
       Animated.timing(spinValue, {
         toValue: targetRotation * 0.75,
         duration: spinDuration * 0.35,
-        easing: Easing.bezier(0.33, 0, 0.66, 1), // Maintain speed with slight deceleration
+        easing: Easing.bezier(0.33, 0, 0.66, 1),
         useNativeDriver: true,
       }),
-      // Gradual deceleration
       Animated.timing(spinValue, {
         toValue: targetRotation * 0.95,
         duration: spinDuration * 0.25,
-        easing: Easing.bezier(0.33, 0, 0.33, 1), // Custom easing for natural slowdown
+        easing: Easing.bezier(0.33, 0, 0.33, 1),
         useNativeDriver: true,
       }),
-      // Final gentle settling
       Animated.spring(spinValue, {
         toValue: targetRotation,
         duration: spinDuration * 0.1,
@@ -192,12 +246,9 @@ export default function PlayScreen({ navigation, route }) {
     ]).start(() => {
       setIsSpinning(false);
       setCurrentPlayerIndex(targetPlayer);
+      saveLastPlayerIndex(targetPlayer);
     });
   };
-
-  useEffect(() => {
-    startSpinAnimation();
-  }, []);
 
   const handleSelectType = (type) => {
     setSelectedType(type);
@@ -209,6 +260,19 @@ export default function PlayScreen({ navigation, route }) {
     setQuestion('');
     startSpinAnimation();
   };
+
+  // Add function to reset revealed questions
+  const resetRevealedQuestions = () => {
+    setRevealedQuestions({
+      truth: new Set(),
+      dare: new Set()
+    });
+  };
+
+  // Add useEffect to reset revealed questions when difficulty or gameMode changes
+  useEffect(() => {
+    resetRevealedQuestions();
+  }, [difficulty, gameMode]);
 
   const spin = spinValue.interpolate({
     inputRange: [0, 1],
@@ -229,22 +293,16 @@ export default function PlayScreen({ navigation, route }) {
       return (
         <Animated.View
           key={index}
-          style={[
-            styles.playerNameContainer,
-            {
-              transform: [
-                { translateX: x },
-                { translateY: y },
-                { rotate: `${angle + Math.PI/4}rad` }, // Offset to match container rotation
-                { scale: isSpinning ? 0.9 : 1 }, // Slight scale during spin
-              ],
-            },
-          ]}
+          className={`absolute ${isSpinning ? 'opacity-90 scale-90' : 'opacity-100'}`}
+          style={{
+            transform: [
+              { translateX: x },
+              { translateY: y },
+              { rotate: `${angle + Math.PI/4}rad` },
+            ],
+          }}
         >
-          <Text style={[
-            styles.playerNameText,
-            isSpinning && styles.playerNameSpinning,
-          ]}>
+          <Text className={`text-white text-lg font-bold ${isSpinning ? 'opacity-75' : ''}`}>
             {player.name}
           </Text>
         </Animated.View>
@@ -252,510 +310,215 @@ export default function PlayScreen({ navigation, route }) {
     });
   };
 
+  const renderSeparators = () => {
+    const angleStep = (2 * Math.PI) / players.length;
+    const wheelRadius = width * 0.425; // Half of the wheel width
+    const centerLogoRadius = 48; // Size of the center logo circle (96/2)
+    
+    return players.map((_, index) => {
+      const angle = index * angleStep;
+      return (
+        <View
+          key={`separator-${index}`}
+          className="absolute"
+          style={{
+            width: 2,
+            height: wheelRadius * 2, // Full diameter of the wheel
+            backgroundColor: 'rgba(255, 255, 255, 0.3)',
+            left: '50%',
+            top: '50%',
+            transform: [
+              { translateX: -1 },
+              { translateY: -wheelRadius }, // Center the line
+              { rotate: `${(angle * 180) / Math.PI}deg` },
+            ],
+          }}
+        >
+          <View
+            style={{
+              position: 'absolute',
+              width: '100%',
+              height: centerLogoRadius * 2,
+              backgroundColor: '#1a237e', // Same as the first gradient color
+              top: wheelRadius - centerLogoRadius,
+            }}
+          />
+        </View>
+      );
+    });
+  };
+
   const renderSpinWheel = () => (
-    <View style={styles.spinContainer}>
-      <Text style={styles.spinTitle}>Who's Next?</Text>
-      <View style={styles.wheelContainer}>
+    <View className="flex-1 items-center justify-center">
+      <Text className="text-4xl text-white font-bold mb-8 tracking-tight">Who's Next?</Text>
+      <View className="relative mb-8">
+        <View className="absolute -top-6 left-1/2 -ml-[20px] w-0 h-0 border-l-[20px] border-r-[20px] border-b-[40px] border-l-transparent border-r-transparent border-b-white/90 shadow-lg rotate-[-45deg] z-20" />
         <Animated.View
-          style={[
-            styles.wheel,
-            {
-              transform: [{ rotate: spin }],
-            },
-          ]}
+          className="items-center justify-center shadow-2xl"
+          style={{
+            transform: [{ rotate: spin }],
+            width: width * 0.85,
+            height: width * 0.85,
+          }}
         >
           <LinearGradient
             colors={['#1a237e', '#4a148c']}
-            style={styles.wheelGradient}
+            className="w-full h-full rounded-full items-center justify-center border-4 border-white/20 overflow-hidden"
           >
+            {renderSeparators()}
             {renderPlayerNames()}
-            <View style={styles.wheelCenter}>
-              <FontAwesome5 name="user-friends" size={40} color="#fff" />
+            <View className="absolute w-24 h-24 rounded-full bg-white/20 items-center justify-center border-2 border-white/30 shadow-lg">
+              <FontAwesome5 name="user-friends" size={44} color="#fff" />
             </View>
           </LinearGradient>
         </Animated.View>
-        <View style={styles.wheelPointer} />
       </View>
       {!isSpinning && (
-        <View style={styles.selectedPlayerContainer}>
-          <Text style={styles.selectedPlayerText}>
-            {players[currentPlayerIndex].name}'s Turn!
+        <View className="items-center">
+          <Text className="text-4xl text-white font-bold text-center mb-2">
+            {players[currentPlayerIndex].name}
           </Text>
-          <TouchableOpacity
-            style={styles.continueButton}
-            onPress={() => setIsSpinning(false)}
-          >
-            <Text style={styles.continueButtonText}>START TURN</Text>
-          </TouchableOpacity>
+          <Text className="text-xl text-white/80 font-medium text-center">
+            Choose Truth or Dare
+          </Text>
         </View>
       )}
     </View>
   );
 
-  if (isSpinning) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
+  const renderQuestion = () => (
+    <Animated.View
+      className="flex-1 px-5"
+      style={{
+        transform: [{ scale: questionAnimValue }],
+      }}
+    >
+      <View className="flex-1 items-center justify-center">
         <LinearGradient
-          colors={['#1a237e', '#4a148c', '#311b92']}
-          style={styles.background}
+          colors={selectedType === 'truth' ? ['#2196F3', '#1976D2'] : ['#FF4B91', '#A91079']}
+          className="w-full rounded-3xl shadow-2xl overflow-hidden"
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
         >
-          <View style={styles.container}>
-            {renderSpinWheel()}
+          <View className="absolute inset-0 bg-white/10" />
+          <View className="p-7">
+            <View className="flex-row items-center mb-6">
+              <View className="w-12 h-12 rounded-full bg-white/20 items-center justify-center">
+                <MaterialIcons
+                  name={selectedType === 'truth' ? 'question-answer' : 'local-fire-department'}
+                  size={32}
+                  color="#fff"
+                />
+              </View>
+              <Text className="text-white text-xl font-bold tracking-wider ml-4">
+                {selectedType.toUpperCase()}
+              </Text>
+              {question.isCustom && (
+                <View className="bg-[#E91E63] px-3 py-1 rounded-full ml-3">
+                  <Text className="text-white text-xs font-bold tracking-wider">CUSTOM</Text>
+                </View>
+              )}
+            </View>
+            <Animated.View
+              className="items-center"
+              style={{
+                transform: [
+                  {
+                    scale: questionAnimValue.interpolate({
+                      inputRange: [0, 0.3, 0.6, 0.8, 1],
+                      outputRange: [1, 1.1, 1.15, 1.05, 1],
+                    }),
+                  },
+                  {
+                    rotate: questionAnimValue.interpolate({
+                      inputRange: [0, 0.3, 0.6, 0.8, 1],
+                      outputRange: ['0deg', '-2deg', '2deg', '-1deg', '0deg'],
+                    }),
+                  },
+                ],
+                opacity: questionAnimValue.interpolate({
+                  inputRange: [0, 0.2, 0.8, 1],
+                  outputRange: [0.7, 1, 1, 1],
+                }),
+              }}
+            >
+              <Text className={`text-white text-2xl text-center leading-9 font-medium ${
+                isChoosingQuestion ? 'opacity-75' : ''
+              }`}>
+                {question.text || question}
+              </Text>
+            </Animated.View>
           </View>
         </LinearGradient>
-      </SafeAreaView>
-    );
-  }
+      </View>
+      <TouchableOpacity
+        className={`w-full bg-white rounded-2xl py-4 mb-6 shadow-lg ${
+          isChoosingQuestion ? 'opacity-50' : ''
+        }`}
+        onPress={nextPlayer}
+        disabled={isChoosingQuestion}
+      >
+        <Text className="text-purple-900 text-lg font-bold text-center tracking-wider">
+          NEXT PLAYER
+        </Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView className="flex-1 bg-[#1a237e] pt-[${Platform.OS === 'android' ? StatusBar.currentHeight : 0}px]">
       <LinearGradient
         colors={['#1a237e', '#4a148c', '#311b92']}
-        style={styles.background}
+        className="flex-1"
       >
-        <View style={styles.container}>
-          <View style={styles.header}>
+        <View className="flex-1 pt-5">
+          <View className="flex-row items-center justify-between px-5 mb-8">
             <TouchableOpacity
-              style={styles.backButton}
+              className="w-11 h-11 rounded-full bg-white/15 justify-center items-center"
               onPress={() => navigation.goBack()}
             >
               <AntDesign name="arrowleft" size={24} color="#fff" />
             </TouchableOpacity>
-            <View style={styles.headerContent}>
-              <Text style={styles.playerName}>{players[currentPlayerIndex].name}'s Turn</Text>
-              <Text style={styles.subtitle}>Choose Truth or Dare</Text>
+            <View className="flex-row items-center bg-white/10 px-4 py-2 rounded-full">
+              <MaterialIcons
+                name={difficulty === 'soft' ? 'sentiment-satisfied' : 'whatshot'}
+                size={24}
+                color="#fff"
+                className="mr-2"
+              />
+              <Text className="text-white text-lg font-semibold capitalize">
+                {difficulty} Mode
+              </Text>
             </View>
           </View>
 
           {!selectedType ? (
-            <View style={styles.choiceContainer}>
-              <TouchableOpacity
-                style={styles.choiceCard}
-                onPress={() => handleSelectType('truth')}
-              >
-                <LinearGradient
-                  colors={['#2196F3', '#1976D2']}
-                  style={styles.choiceGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <View style={styles.glassEffect} />
-                  <View style={styles.choiceContent}>
-                    <View style={styles.iconContainer}>
-                      <MaterialIcons name="question-answer" size={40} color="#fff" />
-                    </View>
-                    <Text style={styles.choiceTitle}>TRUTH</Text>
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.choiceCard}
-                onPress={() => handleSelectType('dare')}
-              >
-                <LinearGradient
-                  colors={['#FF4B91', '#A91079']}
-                  style={styles.choiceGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <View style={styles.glassEffect} />
-                  <View style={styles.choiceContent}>
-                    <View style={styles.iconContainer}>
-                      <Ionicons name="flame" size={40} color="#fff" />
-                    </View>
-                    <Text style={styles.choiceTitle}>DARE</Text>
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.questionContainer}>
-              <LinearGradient
-                colors={selectedType === 'truth' ? ['#2196F3', '#1976D2'] : ['#FF4B91', '#A91079']}
-                style={styles.questionCard}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <View style={styles.glassEffect} />
-                <View style={styles.questionContent}>
-                  <View style={styles.typeContainer}>
-                    <MaterialIcons
-                      name={selectedType === 'truth' ? 'question-answer' : 'local-fire-department'}
-                      size={32}
-                      color="#fff"
-                    />
-                    <Text style={styles.typeText}>
-                      {selectedType.toUpperCase()}
-                    </Text>
-                    {question.isCustom && (
-                      <View style={styles.customBadge}>
-                        <Text style={styles.customBadgeText}>CUSTOM</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Animated.View
-                    style={[
-                      styles.questionTextContainer,
-                      {
-                        transform: [
-                          {
-                            scale: questionAnimValue.interpolate({
-                              inputRange: [0, 0.3, 0.6, 0.8, 1],
-                              outputRange: [1, 1.1, 1.15, 1.05, 1],
-                            }),
-                          },
-                          {
-                            rotate: questionAnimValue.interpolate({
-                              inputRange: [0, 0.3, 0.6, 0.8, 1],
-                              outputRange: ['0deg', '-2deg', '2deg', '-1deg', '0deg'],
-                            }),
-                          },
-                        ],
-                        opacity: questionAnimValue.interpolate({
-                          inputRange: [0, 0.2, 0.8, 1],
-                          outputRange: [0.7, 1, 1, 1],
-                        }),
-                      },
-                    ]}
+            <>
+              {renderSpinWheel()}
+              {!isSpinning && (
+                <View className="flex-row justify-center gap-4 mb-8 px-5">
+                  <TouchableOpacity
+                    className="flex-1 flex-row items-center justify-center bg-[#2196F3] py-5 rounded-2xl shadow-lg"
+                    onPress={() => handleSelectType('truth')}
                   >
-                    <Text style={[
-                      styles.questionText,
-                      isChoosingQuestion && styles.questionTextAnimating,
-                    ]}>
-                      {question.text || question}
-                    </Text>
-                  </Animated.View>
+                    <MaterialIcons name="question-answer" size={28} color="#fff" className="mr-3" />
+                    <Text className="text-white text-xl font-bold tracking-wide">TRUTH</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    className="flex-1 flex-row items-center justify-center bg-[#F44336] py-5 rounded-2xl shadow-lg"
+                    onPress={() => handleSelectType('dare')}
+                  >
+                    <FontAwesome5 name="fire" size={28} color="#fff" className="mr-3" />
+                    <Text className="text-white text-xl font-bold tracking-wide">DARE</Text>
+                  </TouchableOpacity>
                 </View>
-              </LinearGradient>
-
-              <TouchableOpacity
-                style={[styles.nextButton, isChoosingQuestion && styles.nextButtonDisabled]}
-                onPress={nextPlayer}
-                disabled={isChoosingQuestion}
-              >
-                <Text style={styles.nextButtonText}>NEXT PLAYER</Text>
-              </TouchableOpacity>
-            </View>
+              )}
+            </>
+          ) : (
+            renderQuestion()
           )}
         </View>
       </LinearGradient>
     </SafeAreaView>
   );
-}
-
-const { width, height } = Dimensions.get('window');
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#1a237e',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-  },
-  background: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    padding: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
-  },
-  headerContent: {
-    flex: 1,
-  },
-  playerName: {
-    fontSize: 32,
-    color: '#ffffff',
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  choiceContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    gap: 24,
-  },
-  choiceCard: {
-    height: height * 0.25,
-    borderRadius: 24,
-    overflow: 'hidden',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-  },
-  choiceGradient: {
-    flex: 1,
-    padding: 24,
-  },
-  glassEffect: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 24,
-  },
-  choiceContent: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-  },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  choiceTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-    letterSpacing: 2,
-  },
-  questionContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    gap: 24,
-  },
-  questionCard: {
-    flex: 1,
-    maxHeight: height * 0.5,
-    borderRadius: 24,
-    overflow: 'hidden',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-  },
-  questionContent: {
-    flex: 1,
-    padding: 24,
-  },
-  typeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 24,
-  },
-  typeText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
-    letterSpacing: 2,
-  },
-  questionText: {
-    fontSize: 24,
-    color: '#fff',
-    fontWeight: '600',
-    textAlign: 'center',
-    lineHeight: 36,
-  },
-  nextButton: {
-    height: 56,
-    backgroundColor: '#fff',
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  nextButtonText: {
-    color: '#4a148c',
-    fontSize: 18,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-  },
-  spinContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 32,
-  },
-  spinTitle: {
-    fontSize: 32,
-    color: '#ffffff',
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  wheelContainer: {
-    width: width * 0.8,
-    height: width * 0.8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-    transform: [{ rotate: '45deg' }], // Offset the initial position
-  },
-  wheel: {
-    width: '100%',
-    height: '100%',
-    borderRadius: width * 0.4,
-    overflow: 'hidden',
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 5,
-    },
-    shadowOpacity: 0.34,
-    shadowRadius: 6.27,
-    backfaceVisibility: 'hidden', // Reduces visual artifacts during rotation
-  },
-  wheelGradient: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  wheelCenter: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  wheelPointer: {
-    position: 'absolute',
-    top: -20,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 15,
-    borderRightWidth: 15,
-    borderBottomWidth: 30,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderBottomColor: '#fff',
-    transform: [{ rotate: '-45deg' }], // Match container rotation
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  selectedPlayerContainer: {
-    alignItems: 'center',
-    gap: 20,
-  },
-  selectedPlayerText: {
-    fontSize: 28,
-    color: '#ffffff',
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  continueButton: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 28,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  continueButtonText: {
-    color: '#4a148c',
-    fontSize: 18,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-  },
-  playerNameContainer: {
-    position: 'absolute',
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 80,
-    height: 30,
-    backfaceVisibility: 'hidden',
-  },
-  playerNameText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
-  },
-  playerNameSpinning: {
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 4,
-  },
-  questionTextContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  nextButtonDisabled: {
-    opacity: 0.5,
-  },
-  questionTextAnimating: {
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 4,
-  },
-  customBadge: {
-    backgroundColor: '#E91E63',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginLeft: 8,
-  },
-  customBadgeText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-}); 
+} 

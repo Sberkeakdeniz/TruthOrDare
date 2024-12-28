@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  StyleSheet,
   Text,
   View,
   TouchableOpacity,
@@ -73,45 +72,49 @@ export default function CreateDaresScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView className="flex-1 bg-[#1a237e] pt-[${Platform.OS === 'android' ? StatusBar.currentHeight : 0}px]">
       <LinearGradient
         colors={['#1a237e', '#4a148c', '#311b92']}
-        style={styles.background}
+        className="flex-1"
       >
-        <View style={styles.container}>
-          <View style={styles.header}>
+        <View className="flex-1 p-5">
+          <View className="flex-row items-center mb-8">
             <TouchableOpacity
-              style={styles.backButton}
+              className="w-10 h-10 rounded-full bg-white/15 justify-center items-center mr-4"
               onPress={() => navigation.goBack()}
             >
               <AntDesign name="arrowleft" size={24} color="#fff" />
             </TouchableOpacity>
-            <View style={styles.headerContent}>
-              <Text style={styles.title}>Create Your Own</Text>
-              <Text style={styles.subtitle}>Add custom truths and dares</Text>
+            <View className="flex-1">
+              <Text className="text-3xl text-white font-bold mb-1">Create Your Own</Text>
+              <Text className="text-base text-white/80">Add custom truths and dares</Text>
             </View>
           </View>
 
-          <View style={styles.typeSelector}>
+          <View className="flex-row justify-between mb-5">
             <TouchableOpacity
-              style={[styles.typeButton, dareType === 'truth' && styles.selectedType]}
+              className={`flex-1 flex-row items-center justify-center p-3 rounded-xl mx-1 ${
+                dareType === 'truth' ? 'bg-white/20' : 'bg-white/10'
+              }`}
               onPress={() => setDareType('truth')}
             >
-              <MaterialIcons name="question-answer" size={24} color="#fff" />
-              <Text style={styles.typeButtonText}>TRUTH</Text>
+              <MaterialIcons name="question-answer" size={24} color="#fff" className="mr-2" />
+              <Text className="text-white text-base font-bold">TRUTH</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.typeButton, dareType === 'dare' && styles.selectedType]}
+              className={`flex-1 flex-row items-center justify-center p-3 rounded-xl mx-1 ${
+                dareType === 'dare' ? 'bg-white/20' : 'bg-white/10'
+              }`}
               onPress={() => setDareType('dare')}
             >
-              <MaterialIcons name="local-fire-department" size={24} color="#fff" />
-              <Text style={styles.typeButtonText}>DARE</Text>
+              <MaterialIcons name="local-fire-department" size={24} color="#fff" className="mr-2" />
+              <Text className="text-white text-base font-bold">DARE</Text>
             </TouchableOpacity>
           </View>
 
-          <View style={styles.inputContainer}>
+          <View className="mb-5">
             <TextInput
-              style={styles.input}
+              className="bg-white/10 rounded-xl p-4 text-white text-base min-h-[100px] mb-2.5"
               placeholder={`Enter your ${dareType}...`}
               placeholderTextColor="rgba(255, 255, 255, 0.5)"
               value={newDare}
@@ -120,23 +123,23 @@ export default function CreateDaresScreen({ navigation }) {
               maxLength={200}
             />
             <TouchableOpacity
-              style={styles.addButton}
+              className="bg-[#4CAF50] p-4 rounded-xl items-center"
               onPress={handleAddDare}
             >
-              <Text style={styles.addButtonText}>ADD</Text>
+              <Text className="text-white font-bold text-base">ADD</Text>
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.listContainer}>
-            <Text style={styles.sectionTitle}>
+          <ScrollView className="flex-1">
+            <Text className="text-xl text-white font-bold mb-4">
               {dareType === 'truth' ? 'Your Truths' : 'Your Dares'}
             </Text>
             {customDares[dareType].map((dare, index) => (
-              <View key={index} style={styles.dareItem}>
-                <Text style={styles.dareText}>{dare}</Text>
+              <View key={index} className="bg-white/10 rounded-xl p-4 mb-3 flex-row items-center">
+                <Text className="flex-1 text-white text-base">{dare}</Text>
                 <TouchableOpacity
                   onPress={() => handleDeleteDare(dareType, index)}
-                  style={styles.deleteButton}
+                  className="ml-3"
                 >
                   <AntDesign name="delete" size={20} color="#fff" />
                 </TouchableOpacity>
@@ -146,17 +149,17 @@ export default function CreateDaresScreen({ navigation }) {
           
           <LinearGradient
             colors={['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.05)']}
-            style={styles.infoContainer}
+            className="rounded-xl p-4 mt-4"
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
-            <View style={styles.infoContent}>
-              <MaterialIcons name="info-outline" size={24} color="#E91E63" />
-              <Text style={styles.infoText}>
+            <View className="flex-row items-center">
+              <MaterialIcons name="info-outline" size={24} color="#E91E63" className="mr-3" />
+              <Text className="flex-1 text-white text-sm">
                 Your questions will appear randomly in{' '}
-                <Text style={styles.infoHighlight}>Hot</Text>,{' '}
-                <Text style={styles.infoHighlight}>Hard</Text>, and{' '}
-                <Text style={styles.infoHighlight}>Extreme</Text> levels
+                <Text className="text-[#E91E63]">Hot</Text>,{' '}
+                <Text className="text-[#E91E63]">Hard</Text>, and{' '}
+                <Text className="text-[#E91E63]">Extreme</Text> levels
               </Text>
             </View>
           </LinearGradient>
@@ -164,141 +167,4 @@ export default function CreateDaresScreen({ navigation }) {
       </LinearGradient>
     </SafeAreaView>
   );
-}
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#1a237e',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-  },
-  background: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    padding: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
-  },
-  headerContent: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 32,
-    color: '#ffffff',
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  typeSelector: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  typeButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    marginHorizontal: 5,
-    gap: 8,
-  },
-  selectedType: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  typeButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
-    padding: 15,
-    color: '#fff',
-    fontSize: 16,
-    marginBottom: 10,
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
-  addButton: {
-    backgroundColor: '#4CAF50',
-    padding: 15,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  listContainer: {
-    flex: 1,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    color: '#fff',
-    fontWeight: 'bold',
-    marginBottom: 15,
-  },
-  dareItem: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 10,
-    alignItems: 'center',
-  },
-  dareText: {
-    flex: 1,
-    color: '#fff',
-    fontSize: 16,
-    marginRight: 10,
-  },
-  deleteButton: {
-    padding: 5,
-  },
-  infoContainer: {
-    marginTop: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  infoContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    gap: 12,
-  },
-  infoText: {
-    flex: 1,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  infoHighlight: {
-    color: '#E91E63',
-    fontWeight: 'bold',
-  },
-}); 
+} 

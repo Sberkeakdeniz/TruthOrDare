@@ -1,13 +1,11 @@
 import React from 'react';
 import {
-  StyleSheet,
   Text,
   View,
   TouchableOpacity,
   SafeAreaView,
   Platform,
   StatusBar,
-  Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons, FontAwesome5, AntDesign } from '@expo/vector-icons';
@@ -18,73 +16,73 @@ export default function GameModeScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView className="flex-1 bg-[#1a237e] pt-[${Platform.OS === 'android' ? StatusBar.currentHeight : 0}px]">
       <LinearGradient
         colors={['#1a237e', '#4a148c', '#311b92']}
-        style={styles.background}
+        className="flex-1"
       >
-        <View style={styles.container}>
+        <View className="flex-1 p-5">
           <TouchableOpacity
-            style={styles.backButton}
+            className="w-10 h-10 rounded-full bg-white/15 justify-center items-center mb-5"
             onPress={() => navigation.goBack()}
           >
             <AntDesign name="arrowleft" size={24} color="#fff" />
           </TouchableOpacity>
 
-          <View style={styles.header}>
-            <Text style={styles.title}>Select Mode</Text>
-            <Text style={styles.subtitle}>Choose your game style</Text>
+          <View className="mb-10">
+            <Text className="text-4xl text-white font-bold mb-2">Select Mode</Text>
+            <Text className="text-lg text-white/80">Choose your game style</Text>
           </View>
 
-          <View style={styles.modesContainer}>
+          <View className="flex-1 justify-center space-y-6 pb-[10%]">
             <TouchableOpacity
-              style={styles.modeCard}
+              className="h-[22%] rounded-3xl overflow-hidden shadow-lg"
               onPress={() => handleModeSelect('couples')}
             >
               <LinearGradient
                 colors={['#FF4B91', '#A91079']}
-                style={styles.modeCardGradient}
+                className="flex-1 p-6"
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
-                <View style={[styles.glassEffect, { backgroundColor: 'rgba(255, 192, 203, 0.05)' }]} />
-                <View style={styles.modeContent}>
-                  <View style={[styles.modeIconContainer, { backgroundColor: 'rgba(255, 192, 203, 0.2)' }]}>
+                <View className="absolute inset-0 bg-white/10 rounded-3xl" />
+                <View className="flex-1 flex-row items-center z-10">
+                  <View className="w-20 h-20 rounded-full bg-pink-200/20 justify-center items-center mr-5 border border-white/30">
                     <MaterialIcons name="favorite" size={46} color="#fff" />
                   </View>
-                  <View style={styles.modeTextContainer}>
-                    <Text style={styles.modeTitle}>Couples Mode</Text>
-                    <Text style={styles.modeDescription}>
+                  <View className="flex-1 pr-2.5">
+                    <Text className="text-2xl font-bold text-white mb-2">Couples Mode</Text>
+                    <Text className="text-base text-white/90 leading-[22px]">
                       Perfect for date night or couples gathering
                     </Text>
                   </View>
-                  <AntDesign name="right" size={28} color="#fff" style={styles.arrowIcon} />
+                  <AntDesign name="right" size={28} color="#fff" className="opacity-90" />
                 </View>
               </LinearGradient>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.modeCard}
+              className="h-[22%] rounded-3xl overflow-hidden shadow-lg"
               onPress={() => handleModeSelect('friends')}
             >
               <LinearGradient
                 colors={['#00BCD4', '#3F51B5']}
-                style={styles.modeCardGradient}
+                className="flex-1 p-6"
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
-                <View style={styles.glassEffect} />
-                <View style={styles.modeContent}>
-                  <View style={styles.modeIconContainer}>
+                <View className="absolute inset-0 bg-white/10 rounded-3xl" />
+                <View className="flex-1 flex-row items-center z-10">
+                  <View className="w-20 h-20 rounded-full bg-white/20 justify-center items-center mr-5 border border-white/30">
                     <FontAwesome5 name="user-friends" size={40} color="#fff" />
                   </View>
-                  <View style={styles.modeTextContainer}>
-                    <Text style={styles.modeTitle}>Friends Mode</Text>
-                    <Text style={styles.modeDescription}>
+                  <View className="flex-1 pr-2.5">
+                    <Text className="text-2xl font-bold text-white mb-2">Friends Mode</Text>
+                    <Text className="text-base text-white/90 leading-[22px]">
                       Fun challenges for friend groups
                     </Text>
                   </View>
-                  <AntDesign name="right" size={28} color="#fff" style={styles.arrowIcon} />
+                  <AntDesign name="right" size={28} color="#fff" className="opacity-90" />
                 </View>
               </LinearGradient>
             </TouchableOpacity>
@@ -93,110 +91,4 @@ export default function GameModeScreen({ navigation }) {
       </LinearGradient>
     </SafeAreaView>
   );
-}
-
-const { width, height } = Dimensions.get('window');
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#1a237e',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-  },
-  background: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    padding: 20,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  header: {
-    marginBottom: 40,
-  },
-  title: {
-    fontSize: 36,
-    color: '#ffffff',
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 18,
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  modesContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    gap: 24,
-    paddingBottom: height * 0.1,
-  },
-  modeCard: {
-    height: height * 0.22,
-    borderRadius: 24,
-    overflow: 'hidden',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-  },
-  modeCardGradient: {
-    flex: 1,
-    padding: 24,
-  },
-  glassEffect: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 24,
-  },
-  modeContent: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  modeIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  modeTextContainer: {
-    flex: 1,
-    paddingRight: 10,
-  },
-  modeTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 8,
-  },
-  modeDescription: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
-    lineHeight: 22,
-  },
-  arrowIcon: {
-    opacity: 0.9,
-  },
-}); 
+} 

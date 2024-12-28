@@ -9,6 +9,9 @@ import DifficultyScreen from './screens/DifficultyScreen';
 import PlayScreen from './screens/PlayScreen';
 import CreateDaresScreen from './screens/CreateDaresScreen';
 
+// Import the CSS file that will contain your Tailwind styles
+import './global.css';
+
 const Stack = createNativeStackNavigator();
 
 export default function App() {
