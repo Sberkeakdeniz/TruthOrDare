@@ -24,6 +24,19 @@ def fix_module_defines(installer)
   end
 end
 
+def fix_script_permissions(installer)
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      ['expo-configure-project.sh'].each do |script_name|
+        script_path = "Pods/Target Support Files/#{target.name}/#{script_name}"
+        if File.exist?(script_path)
+          File.chmod(0755, script_path)
+        end
+      end
+    end
+  end
+end
+
 target 'truthordare' do
   use_expo_modules!
 
@@ -75,6 +88,7 @@ target 'truthordare' do
     end
 
     fix_module_defines(installer)
+    fix_script_permissions(installer)
 
     installer.pods_project.build_configurations.each do |config|
       config.build_settings["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
