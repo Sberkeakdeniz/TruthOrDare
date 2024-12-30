@@ -60,13 +60,10 @@ export default function DifficultyScreen({ navigation, route }) {
   const handleSelectDifficulty = async (difficulty) => {
     if (difficulty.isPremium && !isPremium) {
       try {
-        const paywallResult = await presentPaywallIfNeeded();
-        if (paywallResult) {
-          // Wait a moment for the paywall to close
-          setTimeout(() => {
-            setIsPremium(true);
-            navigation.navigate('Play', { players, gameMode, difficulty: difficulty.id });
-          }, 500);
+        const purchaseResult = await presentPaywallIfNeeded();
+        if (purchaseResult) {
+          setIsPremium(true);
+          navigation.navigate('Play', { players, gameMode, difficulty: difficulty.id });
         }
       } catch (error) {
         console.error('Error handling purchase:', error);
@@ -79,13 +76,10 @@ export default function DifficultyScreen({ navigation, route }) {
   const handleCreateDares = async () => {
     if (!isPremium) {
       try {
-        const paywallResult = await presentPaywallIfNeeded();
-        if (paywallResult) {
-          // Wait a moment for the paywall to close
-          setTimeout(() => {
-            setIsPremium(true);
-            navigation.navigate('CreateDares');
-          }, 500);
+        const purchaseResult = await presentPaywallIfNeeded();
+        if (purchaseResult) {
+          setIsPremium(true);
+          navigation.navigate('CreateDares');
         }
       } catch (error) {
         console.error('Error handling purchase:', error);

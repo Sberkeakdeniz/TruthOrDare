@@ -12,6 +12,12 @@ export async function initializePurchases() {
         apiKey: API_KEY,
         useStoreKit2IfAvailable: true
       });
+      
+      // Set up purchase listener
+      Purchases.addCustomerInfoUpdateListener((info) => {
+        console.log('Customer info updated:', info);
+      });
+      
       console.log('RevenueCat initialized');
     } catch (error) {
       console.error('Error initializing RevenueCat:', error);
@@ -45,17 +51,14 @@ export async function presentPaywallIfNeeded() {
       requiredEntitlementIdentifier: "premium"
     });
 
-    switch (paywallResult) {
-      case PAYWALL_RESULT.NOT_PRESENTED:
-      case PAYWALL_RESULT.ERROR:
-      case PAYWALL_RESULT.CANCELLED:
-        return false;
-      case PAYWALL_RESULT.PURCHASED:
-      case PAYWALL_RESULT.RESTORED:
-        return true;
-      default:
-        return false;
+    if (paywallResult === PAYWALL_RESULT.PURCHASED || paywallResult === PAYWALL_RESULT.RESTORED) {
+      // Force refresh customer info after purchase
+      await Purchases.syncPurchases();
+      const purchaserInfo = await Purchases.getCustomerInfo();
+      return purchaserInfo?.entitlements?.active?.premium ?? false;
     }
+
+    return false;
   } catch (e) {
     console.error('Error presenting paywall:', e);
     return false;

@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { TranslationProvider } from './translations/TranslationContext';
 import { initializePurchases, checkPremiumStatus } from './utils/purchases';
+import Purchases from 'react-native-purchases';
 
 // Import screens
 import WelcomeScreen from './screens/WelcomeScreen';
@@ -23,8 +24,19 @@ export default function App() {
       await initializePurchases();
       const premium = await checkPremiumStatus();
       setIsPremium(premium);
+
+      // Set up listener for purchase updates
+      Purchases.addCustomerInfoUpdateListener(async (info) => {
+        const premium = info?.entitlements?.active?.premium ?? false;
+        setIsPremium(premium);
+      });
     };
     setup();
+
+    // Cleanup listener on unmount
+    return () => {
+      Purchases.removeCustomerInfoUpdateListener();
+    };
   }, []);
 
   return (
