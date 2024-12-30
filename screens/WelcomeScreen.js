@@ -116,7 +116,7 @@ export default function WelcomeScreen({ navigation }) {
         useNativeDriver: true,
       }),
     ]).start(() => {
-      navigation.navigate('PlayerSetup', { gameMode: 'friends' });
+      navigation.navigate('GameMode');
     });
   };
 

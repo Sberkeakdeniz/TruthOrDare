@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import {
   Text,
   View,
@@ -10,6 +10,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { AntDesign, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useTranslation } from '../translations/TranslationContext';
+import { PremiumContext } from '../App';
+import { presentPaywallIfNeeded } from '../utils/purchases';
 
 const DIFFICULTIES = [
   {
@@ -18,7 +20,8 @@ const DIFFICULTIES = [
     icon: 'sentiment-satisfied',
     iconFamily: 'MaterialIcons',
     colors: ['#4CAF50', '#388E3C'],
-    description: 'Keep it light and fun'
+    description: 'Keep it light and fun',
+    isPremium: false
   },
   {
     id: 'hot',
@@ -26,7 +29,8 @@ const DIFFICULTIES = [
     icon: 'whatshot',
     iconFamily: 'MaterialIcons',
     colors: ['#FF9800', '#F57C00'],
-    description: 'Spice things up a bit'
+    description: 'Spice things up a bit',
+    isPremium: true
   },
   {
     id: 'hard',
@@ -34,7 +38,8 @@ const DIFFICULTIES = [
     icon: 'grin-hearts',
     iconFamily: 'FontAwesome5',
     colors: ['#F44336', '#D32F2F'],
-    description: 'Take it to the next level'
+    description: 'Take it to the next level',
+    isPremium: true
   },
   {
     id: 'extreme',
@@ -42,20 +47,63 @@ const DIFFICULTIES = [
     icon: 'grin-tongue-wink',
     iconFamily: 'FontAwesome5',
     colors: ['#9C27B0', '#7B1FA2'],
-    description: 'No limits, pure fun'
+    description: 'No limits, pure fun',
+    isPremium: true
   }
 ];
 
 export default function DifficultyScreen({ navigation, route }) {
   const { players, gameMode } = route.params;
   const { strings } = useTranslation();
+  const { isPremium, setIsPremium } = useContext(PremiumContext);
 
-  const handleSelectDifficulty = (difficulty) => {
-    navigation.navigate('Play', { players, gameMode, difficulty });
+  const handleSelectDifficulty = async (difficulty) => {
+    if (difficulty.isPremium && !isPremium) {
+      try {
+        const paywallResult = await presentPaywallIfNeeded();
+        if (paywallResult) {
+          // Wait a moment for the paywall to close
+          setTimeout(() => {
+            setIsPremium(true);
+            navigation.navigate('Play', { players, gameMode, difficulty: difficulty.id });
+          }, 500);
+        }
+      } catch (error) {
+        console.error('Error handling purchase:', error);
+      }
+    } else {
+      navigation.navigate('Play', { players, gameMode, difficulty: difficulty.id });
+    }
+  };
+
+  const handleCreateDares = async () => {
+    if (!isPremium) {
+      try {
+        const paywallResult = await presentPaywallIfNeeded();
+        if (paywallResult) {
+          // Wait a moment for the paywall to close
+          setTimeout(() => {
+            setIsPremium(true);
+            navigation.navigate('CreateDares');
+          }, 500);
+        }
+      } catch (error) {
+        console.error('Error handling purchase:', error);
+      }
+    } else {
+      navigation.navigate('CreateDares');
+    }
+  };
+
+  const getDifficultyStyle = (difficulty) => {
+    if (!difficulty.isPremium || isPremium) {
+      return "opacity-100";
+    }
+    return "opacity-70";
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#1a237e] pt-[${Platform.OS === 'android' ? StatusBar.currentHeight : 0}px]">
+    <SafeAreaView className={`flex-1 bg-[#1a237e] pt-[${Platform.OS === 'android' ? StatusBar.currentHeight : 0}px]`}>
       <LinearGradient
         colors={['#1a237e', '#4a148c', '#311b92']}
         className="flex-1"
@@ -82,8 +130,8 @@ export default function DifficultyScreen({ navigation, route }) {
             {DIFFICULTIES.map((difficulty) => (
               <TouchableOpacity
                 key={difficulty.id}
-                className="h-[11%] rounded-2xl overflow-hidden shadow-lg"
-                onPress={() => handleSelectDifficulty(difficulty.id)}
+                className={`h-[11%] rounded-2xl overflow-hidden shadow-lg ${getDifficultyStyle(difficulty)}`}
+                onPress={() => handleSelectDifficulty(difficulty)}
               >
                 <LinearGradient
                   colors={difficulty.colors}
@@ -106,7 +154,12 @@ export default function DifficultyScreen({ navigation, route }) {
                       </Text>
                       <Text className="text-sm text-white/80">{difficulty.description}</Text>
                     </View>
-                    <AntDesign name="arrowright" size={24} color="#fff" />
+                    <View className="flex-row items-center">
+                      {difficulty.isPremium && !isPremium && (
+                        <MaterialIcons name="lock" size={20} color="#fff" className="mr-2" />
+                      )}
+                      <AntDesign name="arrowright" size={24} color="#fff" />
+                    </View>
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
@@ -114,11 +167,12 @@ export default function DifficultyScreen({ navigation, route }) {
           </View>
 
           <TouchableOpacity
-            className="mt-4 bg-white/10 rounded-2xl p-4 border border-white/20"
-            onPress={() => navigation.navigate('CreateDares')}
+            className={`mt-4 bg-white/10 rounded-2xl p-4 border border-white/20 ${!isPremium ? 'opacity-70' : 'opacity-100'}`}
+            onPress={handleCreateDares}
           >
             <View className="flex-row items-center justify-center">
               <MaterialIcons name="add-circle-outline" size={24} color="#fff" className="mr-2" />
+              {!isPremium && <MaterialIcons name="lock" size={20} color="#fff" className="mr-2" />}
               <Text className="text-white text-lg font-semibold ml-2">
                 {strings?.createDares?.title || 'Create Custom Dares'}
               </Text>

@@ -1,0 +1,25 @@
+{
+  "products": [
+    {
+      "identifier": "premium",
+      "type": "non_consumable",
+      "title": "Truth or Dare Premium",
+      "description": "Unlock all difficulty levels and custom dares",
+      "price": 39.99,
+      "priceString": "$39.99",
+      "currencyCode": "USD"
+    }
+  ],
+  "offerings": [
+    {
+      "identifier": "default",
+      "description": "Default offering",
+      "packages": [
+        {
+          "identifier": "premium",
+          "platformProductIdentifier": "premium"
+        }
+      ]
+    }
+  ]
+} 

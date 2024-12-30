@@ -1,0 +1,21 @@
+{
+  "identifier" : "premium_configuration",
+  "displayName" : "Premium Configuration",
+  "description" : "Configuration for Truth or Dare premium features",
+  "products" : [
+    {
+      "id" : "premium",
+      "type" : "nonConsumable",
+      "displayName" : "Truth or Dare Premium",
+      "description" : "Unlock all difficulty levels and custom dares",
+      "price" : 39.99,
+      "localizations" : [
+        {
+          "locale" : "en_US",
+          "displayName" : "Truth or Dare Premium",
+          "description" : "Unlock all difficulty levels and custom dares"
+        }
+      ]
+    }
+  ]
+} 

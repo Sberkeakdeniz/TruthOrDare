@@ -289,22 +289,49 @@ export default function PlayScreen({ navigation, route }) {
 
   const renderPlayerNames = () => {
     const wheelSize = width * 0.8;
-    const radius = wheelSize / 2 - 40;
+    const radius = wheelSize / 2 - 60;
     const angleStep = (2 * Math.PI) / players.length;
     const textWidth = 100; // Width of text container
     const textHeight = 24; // Height of text container
 
     return players.map((player, index) => {
-      // Calculate the center angle between two separators
-      const sectionCenterAngle = (index * angleStep) + (angleStep / 2) - Math.PI / 2;
+      let sectionCenterAngle;
+      let adjustedRadius;
+
+      // Specific calculations based on player count
+      switch (players.length) {
+        case 2:
+          sectionCenterAngle = index * Math.PI - Math.PI / 2; // 180 degrees apart
+          adjustedRadius = radius * 0.7;
+          break;
+        case 3:
+          sectionCenterAngle = (index * angleStep) + (angleStep / 2) - Math.PI / 2;
+          adjustedRadius = radius * 0.8;
+          break;
+        case 4:
+          sectionCenterAngle = (index * angleStep) + (angleStep / 2) - Math.PI / 2;
+          adjustedRadius = radius * 0.85;
+          break;
+        default:
+          sectionCenterAngle = (index * angleStep) + (angleStep / 2) - Math.PI / 2;
+          adjustedRadius = radius * 0.9;
+      }
       
       // Calculate position based on the center angle
-      const x = radius * Math.cos(sectionCenterAngle);
-      const y = radius * Math.sin(sectionCenterAngle);
+      const x = adjustedRadius * Math.cos(sectionCenterAngle);
+      const y = adjustedRadius * Math.sin(sectionCenterAngle);
 
       // Calculate the position to center the text
       const textCenterX = x - (textWidth / 2);
       const textCenterY = y - (textHeight / 2);
+
+      // Calculate text rotation angle
+      const textRotationAngle = sectionCenterAngle + Math.PI/2;
+      
+      // For 2 players, keep text horizontal
+      const finalRotation = players.length === 2 
+        ? (index === 0 ? 0 : Math.PI) 
+        : textRotationAngle;
 
       return (
         <Animated.View
@@ -319,7 +346,7 @@ export default function PlayScreen({ navigation, route }) {
             transform: [
               { translateX: textCenterX },
               { translateY: textCenterY },
-              { rotate: `${sectionCenterAngle + Math.PI/2}rad` }, // Rotate text to be readable
+              { rotate: `${finalRotation}rad` },
             ],
             justifyContent: 'center',
             alignItems: 'center',

@@ -14,7 +14,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.seralpberke.truthordare"
+      "bundleIdentifier": "com.seralpberke.truthordare",
+      "appleTeamId": "5XT2NZRUQ3"
     },
     "android": {
       "adaptiveIcon": {
