@@ -9,29 +9,32 @@
       }
     ]
   },
-  "identifier" : "2EE1B5DE",
+  "identifier" : "F3D13802",
   "nonRenewingSubscriptions" : [
 
   ],
   "products" : [
     {
-      "displayPrice" : "249.99",
+      "displayPrice" : "5.99",
       "familyShareable" : false,
-      "internalID" : "734B916C",
+      "internalID" : "6739984558",
       "localizations" : [
         {
-          "description" : "",
-          "displayName" : "Unlock all questions",
+          "description" : "this package provides access to all questions",
+          "displayName" : "Premium Questions",
           "locale" : "en_US"
         }
       ],
       "productID" : "premium",
-      "referenceName" : "premium",
+      "referenceName" : "Premium Questions",
       "type" : "NonConsumable"
     }
   ],
   "settings" : {
+    "_applicationInternalID" : "6739967860",
+    "_developerTeamID" : "5XT2NZRUQ3",
     "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 757284784.27129805,
     "_locale" : "en_US",
     "_storefront" : "TUR",
     "_storeKitErrors" : [
