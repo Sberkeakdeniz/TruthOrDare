@@ -13,6 +13,17 @@ install! 'cocoapods',
 
 prepare_react_native_project!
 
+def fix_module_defines(installer)
+  excluded_targets = ['expo-dev-menu', 'ReactNativeCompatibles', 'SafeAreaView', 'Vendored']
+  installer.pods_project.targets.each do |target|
+    if excluded_targets.include?(target.name)
+      target.build_configurations.each do |config|
+        config.build_settings.delete('DEFINES_MODULE')
+      end
+    end
+  end
+end
+
 target 'truthordare' do
   use_expo_modules!
 
@@ -61,6 +72,12 @@ target 'truthordare' do
           config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
         end
       end
+    end
+
+    fix_module_defines(installer)
+
+    installer.pods_project.build_configurations.each do |config|
+      config.build_settings["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
     end
   end
 end
